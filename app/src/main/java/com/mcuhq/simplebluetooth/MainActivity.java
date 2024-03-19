@@ -1,6 +1,11 @@
 package com.mcuhq.simplebluetooth;
 
+import static com.mcuhq.simplebluetooth.R.drawable.carseat;
+
 import android.Manifest;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
@@ -9,6 +14,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -33,6 +40,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.UUID;
 
+
+
 public class MainActivity extends AppCompatActivity {
 
     private final String TAG = MainActivity.class.getSimpleName();
@@ -42,7 +51,11 @@ public class MainActivity extends AppCompatActivity {
     // #defines for identifying shared types between calling functions
     private final static int REQUEST_ENABLE_BT = 1; // used to identify adding bluetooth names
     public final static int MESSAGE_READ = 2; // used in bluetooth handler to identify message update
-    private final static int CONNECTING_STATUS = 3; // used in bluetooth handler to identify message status
+    private final static int CONNECTING_STATUS = 3; // used in bluetooth handler to identify message status //changesed from private to public!!!!!!!!!!!!!!!!
+
+    private static Context mContext;
+    private static final String NOTIFICATION_CHANNEL_ID = "BluetoothNotificationChannel";
+    private static final int NOTIFICATION_ID = 1;
 
     // GUI Components
     private TextView mBluetoothStatus;
@@ -61,11 +74,34 @@ public class MainActivity extends AppCompatActivity {
     private ConnectedThread mConnectedThread; // bluetooth background worker thread to send and receive data
     private BluetoothSocket mBTSocket = null; // bi-directional client-to-client data path
 
+    private final int CHECK_CONNECTION_INTERVAL = 5000; // 5 seconds interval for checking connection status
+    private Handler connectionCheckHandler;
+    private Runnable connectionCheckRunnable;
+
+    private static final int READ_TIMEOUT = 10000; // Timeout duration in milliseconds
+
+    private Runnable readTimeoutRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (mReadBuffer.getText().toString().trim().equals("1")) {
+                sendBluetoothNotification(); 
+                mHandler.obtainMessage(CONNECTING_STATUS, -1, -1)
+                        .sendToTarget();
+            } else {
+                mHandler.obtainMessage(CONNECTING_STATUS, -1, -1)
+                    .sendToTarget();
+            }
+        }
+    };
+
     //Creation of all components on app interface
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+
+        mContext = this;
 
         mBluetoothStatus = (TextView)findViewById(R.id.bluetooth_status);
         mReadBuffer = (TextView) findViewById(R.id.read_buffer);
@@ -106,8 +142,12 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
+
+
+
+
         //Handler for checkbox updates in connection to '0' or '1' from bluetooth
-         Handler mHandler = new Handler(Looper.getMainLooper()) {
+        mHandler = new Handler(Looper.getMainLooper()) {
             @Override
             public void handleMessage(Message msg) {
                 if (msg.what == MESSAGE_READ) {
@@ -120,16 +160,20 @@ public class MainActivity extends AppCompatActivity {
                         updateCheckBox(false);
                     }
 
+
                     mReadBuffer.setText(readMessage);
+
+                    mHandler.removeCallbacks(readTimeoutRunnable);
+                    mHandler.postDelayed(readTimeoutRunnable, READ_TIMEOUT);
                 }
 
-               // if (msg.what == CONNECTING_STATUS) {
-               //     char[] sConnected;
-               //     if (msg.arg1 == 1)
-               //         mBluetoothStatus.setText(getString(R.string.BTConnected) + msg.obj);
-               //     else
-               //         mBluetoothStatus.setText(getString(R.string.BTconnFail));
-               // }
+                if (msg.what == CONNECTING_STATUS) {
+                    char[] sConnected;
+                    if (msg.arg1 == 1)
+                        mBluetoothStatus.setText(getString(R.string.BTConnected) + msg.obj);
+                    else
+                        mBluetoothStatus.setText(getString(R.string.BTconnFail));
+                }
             }
         };
 
@@ -168,11 +212,39 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onClick(View v){
                     listPairedDevices();
+                    int delayMillis = 3000;
+                    mHandler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            //sendBluetoothNotification();
+                        }
+                    }, delayMillis);
+                    //sendBluetoothNotification(); // remove the above code and uncomment this to send notification right away.
                 }
             });
 
         }
+
+        connectionCheckHandler = new Handler();
+        connectionCheckRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (mConnectedThread != null && !mConnectedThread.isConnected()) {
+                    // Connection lost, handle it here (e.g., show a notification)
+                }
+                // Schedule the next check
+                connectionCheckHandler.postDelayed(this, CHECK_CONNECTION_INTERVAL);
+            }
+        };
+
     }
+
+
+
+
+
+
+
 
     //chackbox updating function
     private void updateCheckBox(final boolean isChecked) {
@@ -182,7 +254,14 @@ public class MainActivity extends AppCompatActivity {
                 mLED1.setChecked(isChecked);
             }
         });
+        makeCheckBoxUnclickable();
     }
+    private void makeCheckBoxUnclickable() {
+        mLED1.setFocusable(false);
+        mLED1.setClickable(false);
+        //mLED1.setEnabled(false);
+    }
+
 
     private void bluetoothOn(){
         if (!mBTAdapter.isEnabled()) {
@@ -220,6 +299,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void discover(){
+
         // Check if the device is already discovering
         if(mBTAdapter.isDiscovering()){
             mBTAdapter.cancelDiscovery();
@@ -304,20 +384,24 @@ public class MainActivity extends AppCompatActivity {
                             mBTSocket.close();
                             mHandler.obtainMessage(CONNECTING_STATUS, -1, -1)
                                     .sendToTarget();
+                            //sendBluetoothNotification();
                         } catch (IOException e2) {
                             //insert code to deal with this
                             Toast.makeText(getBaseContext(), getString(R.string.ErrSockCrea), Toast.LENGTH_SHORT).show();
                         }
                     }
                     if(!fail) {
-                        mConnectedThread = new ConnectedThread(mBTSocket, mHandler);
+                        mConnectedThread = new ConnectedThread(mBTSocket, mHandler, MainActivity.this);
                         mConnectedThread.start();
 
                         mHandler.obtainMessage(CONNECTING_STATUS, 1, -1, name)
                                 .sendToTarget();
+
                     }
                 }
             }.start();
+
+
         }
     };
 
@@ -329,5 +413,33 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "Could not create Insecure RFComm Connection",e);
         }
         return  device.createRfcommSocketToServiceRecord(BT_MODULE_UUID);
+    }
+    private void sendBluetoothNotification() {
+        // Create a notification channel (required for Android Oreo and above)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(NOTIFICATION_CHANNEL_ID,
+                    "Bluetooth Notification Channel",
+                    NotificationManager.IMPORTANCE_HIGH);
+            channel.setDescription("Notification for Bluetooth disconnection");
+            channel.enableLights(true);
+            channel.setLightColor(Color.BLUE);
+            channel.enableVibration(true);
+            channel.setVibrationPattern(new long[]{0, 1000, 500, 1000});
+
+            NotificationManager notificationManager = (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
+            notificationManager.createNotificationChannel(channel);
+        }
+
+        // Create a notification
+        Notification.Builder builder = new Notification.Builder(mContext, NOTIFICATION_CHANNEL_ID)
+                .setContentTitle("*CHILD DETECTED*")
+                .setContentText("Child still detected in vehicle")
+                //.setSmallIcon(R.drawable.ic_launcher.png);
+                .setSmallIcon(R.drawable.carseat2)
+                .setLargeIcon(BitmapFactory.decodeResource(getResources(), R.mipmap.ic_launcher));
+
+        // Notify the user
+        NotificationManager notificationManager = (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
+        notificationManager.notify(NOTIFICATION_ID, builder.build());
     }
 }
