@@ -105,8 +105,8 @@ public class MainActivity extends AppCompatActivity {
 
         mBluetoothStatus = (TextView)findViewById(R.id.bluetooth_status);
         mReadBuffer = (TextView) findViewById(R.id.read_buffer);
-        mScanBtn = (Button)findViewById(R.id.scan);
-        mOffBtn = (Button)findViewById(R.id.off);
+        //mScanBtn = (Button)findViewById(R.id.scan);
+        //mOffBtn = (Button)findViewById(R.id.off);
         mListPairedDevicesBtn = (Button)findViewById(R.id.paired_btn);
         mLED1 = (CheckBox)findViewById(R.id.checkbox_led_1);
 
@@ -194,7 +194,7 @@ public class MainActivity extends AppCompatActivity {
 
 
             //Click functions buttons on interface
-            mScanBtn.setOnClickListener(new View.OnClickListener() {
+           /* mScanBtn.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     bluetoothOn();
@@ -206,7 +206,7 @@ public class MainActivity extends AppCompatActivity {
                 public void onClick(View v){
                     bluetoothOff();
                 }
-            });
+            });*/
 
             mListPairedDevicesBtn.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -398,6 +398,13 @@ public class MainActivity extends AppCompatActivity {
                                 .sendToTarget();
 
                     }
+                    // Clear the list of devices after a device is selected
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mBTArrayAdapter.clear();
+                        }
+                    });
                 }
             }.start();
 
