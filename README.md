@@ -18,14 +18,16 @@ The functionality of the checkbox is directly linked to the embedded arduino cod
 ## Required Tools
 1. Android Studio IDE and SDK
 2. Arduino IDE
-3. [Component List](/Components.md)
+3. Solidworks
+4. [Component List](/Components.md)
 
 ## Setup
 1. Clone the app code including the gradle files from this repository to android studio
 2. Clone the arduino code into the arduino IDE ([Arduino Code](/ArduinoCode))
-3. Fabricate the device using the listed components
-4. Install the app onto an Android device
-5. Run the app on the Android device and connect to the Bluetooth module on the fabricated device and the application will work as intended
+3. Print the box using the [3D print files](/final_3D_print_files)
+4. Fabricate the device using the listed components
+5. Install the app onto an Android device
+6. Run the app on the Android device and connect to the Bluetooth module on the fabricated device and the application will work as intended
 
 ## Project Video
 Here is a link to a video created by the team who put this project together.
